@@ -16,14 +16,13 @@ class HVPOperator(Operator):
     max_samples: max number of examples per batch using all GPUs.
     """
 
-    def __init__(self, model, dataloader, criterion, use_gpu=True,
+    def __init__(self, predictor_fn, parameters, dataloader, criterion, use_gpu=True,
                  max_samples=512):
-        size = int(sum(p.numel() for p in model.parameters()))
+        self.predictor_fn = predictor_fn
+        self.parameters = parameters
+        size = int(sum(p.numel() for p in parameters))
         super(HVPOperator, self).__init__(size)
         self.grad_vec = torch.zeros(size)
-        self.model = model
-        if use_gpu:
-            self.model = self.model.cuda()
         self.dataloader = dataloader
         # Make a copy since we will go over it a bunch
         self.dataloader_iter = iter(dataloader)
@@ -43,7 +42,7 @@ class HVPOperator(Operator):
         grad_product = torch.sum(grad_vec * vec)
         self.zero_grad()
         # take the second gradient
-        grad_grad = torch.autograd.grad(grad_product, self.model.parameters())
+        grad_grad = torch.autograd.grad(grad_product, self.parameters)
         # concatenate the results over the different components of the network
         hessian_vec_prod = torch.cat([g.contiguous().view(-1)
                                       for g in grad_grad])
@@ -53,7 +52,7 @@ class HVPOperator(Operator):
         """
         Zeros out the gradient info for each parameter in the model
         """
-        for p in self.model.parameters():
+        for p in self.parameters:
             if p.grad is not None:
                 p.grad.data.zero_()
 
@@ -78,10 +77,10 @@ class HVPOperator(Operator):
                 input = input.cuda()
                 target = target.cuda()
 
-            output = self.model(input)
+            output = self.predictor_fn(input)
             loss = self.criterion(output, target)
             grad_dict = torch.autograd.grad(
-                loss, self.model.parameters(), create_graph=True)
+                loss, self.parameters, create_graph=True)
             if grad_vec:
                 grad_vec += torch.cat([g.contiguous().view(-1) for g in grad_dict])
             else:
@@ -91,7 +90,7 @@ class HVPOperator(Operator):
         return self.grad_vec
 
 
-def compute_hessian_eigenthings(model, dataloader, loss,
+def compute_hessian_eigenthings(predictor_fn, parameters, dataloader, loss,
                                 num_eigenthings=10,
                                 power_iter_steps=20,
                                 power_iter_err_threshold=1e-4,
@@ -103,7 +102,7 @@ def compute_hessian_eigenthings(model, dataloader, loss,
     for the hessian of the given model by using subsampled power iteration
     with deflation and the hessian-vector product
     """
-    hvp_operator = HVPOperator(model, dataloader, loss, use_gpu=use_gpu,
+    hvp_operator = HVPOperator(predictor_fn, parameters, dataloader, loss, use_gpu=use_gpu,
                                max_samples=max_samples)
     eigenvals, eigenvecs = deflated_power_iteration(hvp_operator,
                                                     num_eigenthings,
