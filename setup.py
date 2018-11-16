@@ -7,4 +7,5 @@ install_requires = [
     'torch>=0.4'
 ]
 
-setup(name="hessian_eigenthings", author="Noah Golmant", install_requires=install_requires)
+setup(name="hessian_eigenthings", author="Noah Golmant", install_requires=install_requires,
+      zip_safe=True)
