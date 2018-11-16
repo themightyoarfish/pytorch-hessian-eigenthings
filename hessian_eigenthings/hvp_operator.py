@@ -68,7 +68,7 @@ class HVPOperator(Operator):
 
         num_chunks = max(1, len(all_inputs) // self.max_samples)
 
-        grad_vec = False
+        grad_vec = None
 
         input_chunks = all_inputs.chunk(num_chunks)
         target_chunks = all_targets.chunk(num_chunks)
@@ -81,7 +81,7 @@ class HVPOperator(Operator):
             loss = self.criterion(output, target)
             grad_dict = torch.autograd.grad(
                 loss, self.parameters, create_graph=True)
-            if grad_vec:
+            if grad_vec is not None:
                 grad_vec += torch.cat([g.contiguous().view(-1) for g in grad_dict])
             else:
                 grad_vec = torch.cat([g.contiguous().view(-1) for g in grad_dict])
