@@ -77,7 +77,7 @@ class HVPOperator(Operator):
                 input = input.cuda()
                 target = target.cuda()
 
-            output = self.predictor_fn(input)
+            output = self.predictor_fn(input, should_train=False, should_publish=False)
             loss = self.criterion(output, target)
             grad_dict = torch.autograd.grad(
                 loss, self.parameters, create_graph=True)
