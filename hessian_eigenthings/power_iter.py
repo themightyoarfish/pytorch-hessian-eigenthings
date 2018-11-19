@@ -2,7 +2,6 @@
 This module contains functions to perform power iteration with deflation
 to compute the top eigenvalues and eigenvectors of a linear operator
 """
-import numpy as np
 import torch
 
 
@@ -64,7 +63,7 @@ def deflated_power_iteration(operator,
             return op.apply(x) - _deflate(x, val, vec)
         current_op = LambdaOperator(_new_op_fn, operator.size)
         eigenvals.append(eigenval)
-        eigenvecs.append(eigenvec.cpu())
+        eigenvecs.append(eigenvec)
 
     return eigenvals, eigenvecs
 
@@ -88,10 +87,10 @@ def power_iteration(operator, steps=20, error_threshold=1e-4,
         new_vec = operator.apply(vec) - momentum * prev_vec
         prev_vec = vec / torch.norm(vec)
 
-        lambda_estimate = vec.dot(new_vec).item()
+        lambda_estimate = vec.dot(new_vec)
         diff = lambda_estimate - prev_lambda
-        vec = new_vec.detach() / torch.norm(new_vec)
-        error = np.abs(diff / lambda_estimate)
+        vec = new_vec / torch.norm(new_vec)
+        error = torch.abs(diff / lambda_estimate)
         if error < error_threshold:
             return lambda_estimate, vec
         prev_lambda = lambda_estimate
